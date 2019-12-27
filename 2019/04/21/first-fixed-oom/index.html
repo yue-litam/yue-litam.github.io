@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    hostname: new URL('https://iaanuzik.com').hostname,
+    root: '/',
+    scheme: 'Mist',
+    version: '7.6.0',
+    exturl: false,
+    sidebar: {"position":"right","width":300,"display":"always","padding":80,"offset":12,"onmobile":false},
+    copycode: {"enable":true,"show_result":true,"style":"flat"},
+    back2top: {"enable":true,"sidebar":true,"scrollpercent":true},
+    bookmark: {"enable":true,"color":"#222","save":"auto"},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    comments: {"style":"tabs","active":null,"storage":true,"lazyload":true,"nav":null},
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: '',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
+  };
+</script>
+
+  <meta name="description" content="这个标题其实没啥意思，就是笔者开发生涯的第一次内存泄漏引发的OOM的处理小记。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="处女OOM">
+<meta property="og:url" content="https://iaanuzik.com/2019/04/21/first-fixed-oom/index.html">
+<meta property="og:site_name" content="KAZE">
+<meta property="og:description" content="这个标题其实没啥意思，就是笔者开发生涯的第一次内存泄漏引发的OOM的处理小记。">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-04-21T16:02:02.000Z">
+<meta property="article:modified_time" content="2019-12-27T19:04:19.118Z">
+<meta property="article:author" content="神楽坂 川風">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="JVM">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://iaanuzik.com/2019/04/21/first-fixed-oom/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>处女OOM | KAZE</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">KAZE</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>Categories</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="en">
+    <link itemprop="mainEntityOfPage" href="https://iaanuzik.com/2019/04/21/first-fixed-oom/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.jpeg">
+      <meta itemprop="name" content="神楽坂 川風">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="KAZE">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          处女OOM
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2019-04-21 16:02:02" itemprop="dateCreated datePublished" datetime="2019-04-21T16:02:02+00:00">2019-04-21</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2019-12-27 19:04:19" itemprop="dateModified" datetime="2019-12-27T19:04:19+00:00">2019-12-27</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%90%8E%E7%AB%AF/" itemprop="url" rel="index">
+                    <span itemprop="name">后端</span>
+                  </a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%90%8E%E7%AB%AF/%E6%8E%92%E9%9A%9C/" itemprop="url" rel="index">
+                    <span itemprop="name">排障</span>
+                  </a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/hint.css/2.4.1/hint.min.css"><p>这个标题其实没啥意思，就是笔者开发生涯的第一次内存泄漏引发的OOM的处理小记。</p>
+<a id="more"></a>
+
+<h1 id="1-发病"><a href="#1-发病" class="headerlink" title="1.发病"></a>1.发病</h1><p>某日笔者完成了既定安排的一项开发任务，开发环境验证没有问题，准备放一小波生产流量到预发布环境测试一下<span class="moe">FLAG：不压测</span>。将Spring Boot的JAR包运行起来后访问了一下页面，没问题。转身去泡了杯咖啡，回来发现，进程不见了。</p>
+<h1 id="2-复现"><a href="#2-复现" class="headerlink" title="2.复现"></a>2.复现</h1><p>笔者检查了一下logback打印出来的日志，没有发现什么异常，遂再次尝试启动，过了一会终端显示 XXX Thread Exit。这时候运维小伙伴过来反馈说预发布环境的ECS内存和CPU都出现了异常情况，收到了好几次报警但又很快就解除报警了。考虑到预发环境的流量也是正式生产环境的，不敢多言，迅速中止发布。</p>
+<p>本地开发验证通过，到线上就出问题，猜测是访问量到一定规模后就会出现。在本地测试环境启动服务，配合Jmeter进行简单的并发测试，通过Linux的<code>top</code>命令也确认了进程的RES和CPU占用异常，4核的CPU被应用占去了380%，RES项也迅速上升到设定的最大值(-Xmx)，再继续发起新的访问，发现JVM Crash了。</p>
+<h1 id="3-问诊"><a href="#3-问诊" class="headerlink" title="3.问诊"></a>3.问诊</h1><h2 id="3-1-寻找占用CPU的线程"><a href="#3-1-寻找占用CPU的线程" class="headerlink" title="3.1.寻找占用CPU的线程"></a>3.1.寻找占用CPU的线程</h2><p>CPU占用高，通常有几种情况：①密集任务 ②死循环 ③频繁的Full GC。</p>
+<p>从笔者本次对代码的调整来分析，没有增加密集任务；对代码进行Review后也没有发现可能存在死循环的代码；内存也存在异常，初步认为是内存回收出了问题。为了验证猜想，首先检查启动的Java进程中占用CPU的是哪些线程。通过执行<code>top -Hp pid</code>获得以下输出：</p>
+<blockquote>
+<p>pid为Java进程ID，可以通过Linux的<code>ps</code>命令或者Java的<code>jps</code>命令获取</p>
+</blockquote>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span><span class="bash"> top -Hp pid</span></span><br><span class="line">  PID USER   PR  NI    VIRT    RES   SHR S %CPU %MEM    TIME+ COMMAND</span><br><span class="line">19963 xxxx   20   0 8206060 4.354g 19800 R 97.0 13.9 31:04.52 java</span><br><span class="line">19964 xxxx   20   0 8206060 4.354g 19800 R 97.0 13.9 31:02.91 java</span><br><span class="line">19961 xxxx   20   0 8206060 4.354g 19800 R 96.7 13.9 31:09.21 java</span><br></pre></td></tr></table></figure>
+
+<p>上面输出的第一列<em>PID<em>是十进制编码的线程ID，为避免和</em>pid</em>(进程ID)发生混淆，下文将线程ID命名为<em>tid</em>，</p>
+<h2 id="3-2-检查线程的工作内容"><a href="#3-2-检查线程的工作内容" class="headerlink" title="3.2.检查线程的工作内容"></a>3.2.检查线程的工作内容</h2><p>笔者先通过命令<code>printf &quot;%x\n&quot; tid</code>转换为十六进制编码，然后使用Java的<code>jstack</code>命令查询这个线程的工作内容</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span><span class="bash"> jstack pid | grep *此处填写十六进制的tid*</span></span><br><span class="line"></span><br><span class="line">"GC task thread#l (ParallelGc)" prio=l0 tid=0x00007 f4bb0021000 nid=0x3b3e runnable</span><br></pre></td></tr></table></figure>
+
+<p>根据输出的内容前几个关键字<em>GC task thread</em>，可以确定是JVM的内存回收线程引发的CPU占用异常。</p>
+<blockquote>
+<p>如果显示的是其它线程内容，则可能是死循环或密集任务导致，此处不做展开。</p>
+</blockquote>
+<h2 id="3-3-查看堆内存对象分布"><a href="#3-3-查看堆内存对象分布" class="headerlink" title="3.3.查看堆内存对象分布"></a>3.3.查看堆内存对象分布</h2><p>此时笔者脑子只有一个念头：内存泄漏了。因为Review的时候没发现什么异常<span class="moe">凸显笔者很菜……</span>，想着先把JVM堆内存DUMP出来看看是哪里。修改JAR启动参数，将-Xmx调低到512M，然后压测访问直到CPU和内存将近耗尽、Java进程快要Crash的时候停止，使用Java提供的<code>jmap</code>命令生成堆内存的DUMP文件：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span><span class="bash"> jmap -dump:format=b,file=mm2.dump pid</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 等待中...</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<ol>
+<li>如果不将-Xmx调低，DUMP的体积是相当可观的，后续使用MAT分析工具打开DUMP文件也会很花时间</li>
+<li>上面的命令将在当前目录生成一个名为<em>mm2.dump</em>的文件，请确保磁盘空间足够</li>
+</ol>
+</blockquote>
+<h2 id="3-4-查看内存模型状态"><a href="#3-4-查看内存模型状态" class="headerlink" title="3.4.查看内存模型状态"></a>3.4.查看内存模型状态</h2><p>笔者在等待jmap完成对堆内存的DUMP操作时，又使用了Java的<code>jstat</code>命令检查了内存模型的状态，每隔2秒输出JVM内部内存的各个区域占用情况：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span><span class="bash"> jstat -gcutil pid 2000</span></span><br><span class="line"></span><br><span class="line"> S0    S1      E       O      M     CCS     YGC      YGCT   FGC    FGCT      GCT</span><br><span class="line">0.00  0.00  100.00  100.00  96.30  94.34    115    18.024   327  1580.409  1598.433</span><br><span class="line">0.00  0.00  100.00  100.00  96.30  94.34    115    18.024   327  1580.409  1598.433</span><br><span class="line">0.00  0.00  100.00  100.00  96.30  94.34    115    18.024   328  1584.509  1602.533</span><br></pre></td></tr></table></figure>
+
+<p>可以看出：</p>
+<ol>
+<li>新生代(E=Eden)和老年代(O=Old)占用一直保持100%，复制区S0和S1却是空的。</li>
+<li>FGCT(Full GC Time) ≈ GCT，JVM非常频繁地执行FullGC，但收效甚微。</li>
+</ol>
+<p>从谷歌到的其他开发者分享的经验中，笔者注意到有这么一种可能：因为内存上升速度很快，但实际笔者设置的Jmeter的并发其实不算很高（设置了50线程循环访问），如果是泄露对象，那这个对象应该是个 <strong>（超）大对象</strong> 了。而代码中可能存在超大对象的地方，确实有一处：使用JPA框架到数据库查询返回一个<strong>A类</strong>的一个集合：List&lt;A&gt;。</p>
+<blockquote>
+<p>关于标记-清理算法的更多信息，可以阅读《深入理解Java虚拟机》<sup id="fnref:1"><a href="#fn:1" rel="footnote"><span class="hint--top hint--error hint--medium hint--rounded hint--bounce" aria-label="《深入理解Java虚拟机》—— 周志明著,机械工业出版社出版
+">[1]</span></a></sup></p>
+</blockquote>
+<h2 id="3-5-堆内存的分析揭秘"><a href="#3-5-堆内存的分析揭秘" class="headerlink" title="3.5.堆内存的分析揭秘"></a>3.5.堆内存的分析揭秘</h2><p>前面对超大对象的猜想还没结束，DUMP操作完成了，将DUMP文件拷贝到另一台机器上，启动MAT分析工具<sup id="fnref:2"><a href="#fn:2" rel="footnote"><span class="hint--top hint--error hint--medium hint--rounded hint--bounce" aria-label="Memory Analyzer Tool, 既可以插件形式运行于Eclipse中，也提供Standalone版本 [下载](https://www.eclipse.org/mat/downloads.php)
+">[2]</span></a></sup>，本小节笔者就不截图。</p>
+<ol>
+<li><p>加载DUMP文件，关于MAT的使用方法，读者请自行谷歌</p>
+</li>
+<li><p>主界面 -&gt; histogram 查看对象图<br>该视图下，按Shallow Heap倒序排序，以对象实例数量为排序条件，开发者可查阅到当前堆中占用内存空间前N名的类名。<br>笔者此时看到的结果，确实为上一小节中提出猜想的<strong>A类</strong>，在排行榜中排行第二</p>
+<blockquote>
+<p>通常char[]或String会排在前五名</p>
+</blockquote>
+</li>
+<li><p>主界面 -&gt; 支配树<br>该视图下，以线程占用堆内存的大小对线程进行排序，可以查看每个线程持有的对象，同时还能看到对象引用的上下文所调用的方法</p>
+<p>笔者在top5的线程中都能发现，持有<strong>A类</strong>的线程上下文对应的方法，都是调用了JPA框架接口的方法</p>
+</li>
+</ol>
+<h1 id="4-下药"><a href="#4-下药" class="headerlink" title="4.下药"></a>4.下药</h1><p>问诊已经结束，引发Crash的方法也找到了，病根是笔者查询数据库的时候，忽视了游客用户的id都是0且是注册延时更新，查询时未排除游客，按照id获取返回的List&lt;A&gt;的size()有十万级别，确实是个<strong>超超超超大对象</strong>了<span class="moe">笔者也是自我感觉超超超超级辣鸡:(</span>。</p>
+<p>剩下的就是补锅了。</p>
+<p>临别前，突然想起了书上的那句话：</p>
+<blockquote>
+<p>比遇到一个大对象更加坏的消息，是遇到一群朝生夕灭的短命大对象。<sup id="fnref:3"><a href="#fn:3" rel="footnote"><span class="hint--top hint--error hint--medium hint--rounded hint--bounce" aria-label="《深入理解Java虚拟机》Page 93: 3.6.2 大对象直接进入老年代.">[3]</span></a></sup></p>
+</blockquote>
+<h1 id="5-参考资料："><a href="#5-参考资料：" class="headerlink" title="5.参考资料："></a>5.参考资料：</h1><ol>
+<li><a href="https://wiki.eclipse.org/MemoryAnalyzer" target="_blank" rel="noopener">MAT WIKI</a></li>
+<li><a href="https://www.jianshu.com/p/f4c6a3116cc3" target="_blank" rel="noopener">JVM CPU高问题排查</a></li>
+<li><a href="http://lovestblog.cn/blog/2016/03/31/cpu-thread/" target="_blank" rel="noopener">如何定位消耗CPU最多的线程</a></li>
+</ol>
+<div id="footnotes"><hr><div id="footnotelist"><ol style="list-style: none; padding-left: 0; margin-left: 40px"><li id="fn:1"><span style="display: inline-block; vertical-align: top; padding-right: 10px; margin-left: -40px">1.</span><span style="display: inline-block; vertical-align: top; margin-left: 10px;">《深入理解Java虚拟机》—— 周志明著,机械工业出版社出版<a href="#fnref:1" rev="footnote"> ↩</a></span></li><li id="fn:2"><span style="display: inline-block; vertical-align: top; padding-right: 10px; margin-left: -40px">2.</span><span style="display: inline-block; vertical-align: top; margin-left: 10px;">Memory Analyzer Tool, 既可以插件形式运行于Eclipse中，也提供Standalone版本 <a href="https://www.eclipse.org/mat/downloads.php" target="_blank" rel="noopener">下载</a><a href="#fnref:2" rev="footnote"> ↩</a></span></li><li id="fn:3"><span style="display: inline-block; vertical-align: top; padding-right: 10px; margin-left: -40px">3.</span><span style="display: inline-block; vertical-align: top; margin-left: 10px;">《深入理解Java虚拟机》Page 93: 3.6.2 大对象直接进入老年代.<a href="#fnref:3" rev="footnote"> ↩</a></span></li></ol></div></div>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Java/" rel="tag"># Java</a>
+              <a href="/tags/JVM/" rel="tag"># JVM</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/07/20/vue-cli-quick-started/" rel="prev" title="Vue-CLI搭建项目">
+      <i class="fa fa-chevron-left"></i> Vue-CLI搭建项目
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/15/maven_java_version/" rel="next" title="设置Maven项目的Java编译级别">
+      设置Maven项目的Java编译级别 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#1-发病"><span class="nav-text">1.发病</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#2-复现"><span class="nav-text">2.复现</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#3-问诊"><span class="nav-text">3.问诊</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#3-1-寻找占用CPU的线程"><span class="nav-text">3.1.寻找占用CPU的线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-2-检查线程的工作内容"><span class="nav-text">3.2.检查线程的工作内容</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-3-查看堆内存对象分布"><span class="nav-text">3.3.查看堆内存对象分布</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-4-查看内存模型状态"><span class="nav-text">3.4.查看内存模型状态</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-5-堆内存的分析揭秘"><span class="nav-text">3.5.堆内存的分析揭秘</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#4-下药"><span class="nav-text">4.下药</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#5-参考资料："><span class="nav-text">5.参考资料：</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="神楽坂 川風"
+      src="/images/avatar.jpeg">
+  <p class="site-author-name" itemprop="name">神楽坂 川風</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">6</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/yue-litam" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;yue-litam" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:ia.anuzik@gmail.com" title="E-Mail → mailto:ia.anuzik@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://stackoverflow.com/users/12023030" title="StackOverflow → https:&#x2F;&#x2F;stackoverflow.com&#x2F;users&#x2F;12023030" rel="noopener" target="_blank"><i class="fa fa-fw fa-stack-overflow"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/ia_anuzik" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;ia_anuzik" rel="noopener" target="_blank"><i class="fa fa-fw fa-twitter"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i></a>
+      </span>
+  </div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+  <div class="beian"><a href="http://www.beian.miit.gov.cn/" rel="noopener" target="_blank">粤ICP-19060337号-1 </a>
+  </div>
+
+<div class="copyright">
+  
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2019</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">神楽坂 川風</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">Theme – <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> v7.6.0
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+<script src="/js/bookmark.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
